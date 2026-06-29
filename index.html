@@ -63,6 +63,9 @@
             <th>Total Spend</th>
             <th>Conversions</th>
             <th>Cost/Conv</th>
+            <th>Won</th>
+            <th>Won Value</th>
+            <th>ROAS</th>
           </tr>
         </thead>
         <tbody id="report-body">
@@ -73,7 +76,7 @@
   </div>
 
   <script>
-    const PROXY_URL = "https://gads-proxy-atl.apfelipe94.workers.dev/";
+    const PROXY_URL = "REPLACE_CLOUDFLARE_WORKER_URL";
     let allData = [];
 
     function fmt(d) { return d.toISOString().split("T")[0]; }
@@ -137,19 +140,22 @@
         const key = `${r.campaign}||${r.adGroup}`;
         if (!adMap[key]) {
           adMap[key] = { campaign: r.campaign, adGroup: r.adGroup,
-            clicks: 0, impressions: 0, cost: 0, conversions: 0 };
+            clicks: 0, impressions: 0, cost: 0, conversions: 0, won: 0, wonValue: 0 };
         }
         adMap[key].clicks       += parseFloat(r.clicks) || 0;
         adMap[key].impressions  += parseFloat(r.impressions) || 0;
         adMap[key].cost         += parseFloat(r.cost) || 0;
         adMap[key].conversions  += parseFloat(r.conversions) || 0;
+        adMap[key].won          += parseFloat(r.won) || 0;
+        adMap[key].wonValue     += parseFloat(r.wonValue) || 0;
       });
 
       const rows = Object.values(adMap)
         .map(r => ({
           ...r,
           cpc:      r.clicks > 0 ? r.cost / r.clicks : 0,
-          costConv: r.conversions > 0 ? r.cost / r.conversions : 0
+          costConv: r.conversions > 0 ? r.cost / r.conversions : 0,
+          roas:     r.cost > 0 ? r.wonValue / r.cost : 0
         }))
         .filter(r => r.clicks > 0)
         .sort((a, b) => b.cost - a.cost);
@@ -169,6 +175,9 @@
           <td>$${r.cost.toFixed(2)}</td>
           <td>${r.conversions.toFixed(1)}</td>
           <td>${r.costConv > 0 ? "$" + r.costConv.toFixed(2) : "—"}</td>
+          <td>${r.won}</td>
+          <td>$${r.wonValue.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+          <td>${r.roas > 0 ? r.roas.toFixed(2) : "—"}</td>
         </tr>
       `).join("");
     }
