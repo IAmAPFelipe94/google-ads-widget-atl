@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #fff; }
+    #report { width: 100%; padding: 10px; }
+    .report-header { text-align: center; margin-bottom: 12px; }
+    .report-header h1 { font-size: 18px; font-weight: bold; color: #000; margin: 0 0 2px 0; }
+    .report-date { font-size: 11px; color: #666; font-style: italic; margin: 0; }
+    .date-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; }
+    .date-controls label { font-size: 13px; color: #374151; font-weight: 600; }
+    .date-controls select { padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; color: #374151; background: #fff; cursor: pointer; }
+    .date-range-inputs { display: flex; align-items: center; gap: 6px; }
+    .date-range-inputs input[type="date"] { padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 13px; }
+    .date-range-inputs span { font-size: 13px; color: #6b7280; }
+    .apply-btn { padding: 6px 16px; background: #16a34a; color: #fff; border: none; border-radius: 4px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .apply-btn:hover { background: #15803d; }
+    .table-responsive { overflow-x: auto; border: 1px solid #d1d5db; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th { background: #34A853; color: #fff; font-weight: bold; font-size: 13px; padding: 7px 10px; border: 1px solid #2d9147; text-align: center; }
+    td { padding: 6px 10px; border: 1px solid #e5e7eb; font-size: 13px; color: #000; text-align: center; white-space: nowrap; }
+    tr:nth-child(even) td { background: #f0fdf4; }
+    .loading { color: #9ca3af; padding: 20px; text-align: center; }
+    .error { color: #ef4444; padding: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="report">
+    <div class="report-header">
+      <h1>Google Ads Performance</h1>
+      <p class="report-date" id="date-label">Live Dashboard View</p>
+    </div>
+    <div class="date-controls">
+      <label>Select date range</label>
+      <select id="preset-select" onchange="handlePresetChange()">
+        <option value="last7">Last 7 days</option>
+        <option value="last30" selected>Last 30 days</option>
+        <option value="last60">Last 60 days</option>
+        <option value="last90">Last 90 days</option>
+        <option value="mtd">Month to date</option>
+        <option value="ytd">Year to date</option>
+        <option value="custom">Custom range</option>
+      </select>
+      <div class="date-range-inputs" id="custom-range" style="display:none;">
+        <span>From</span>
+        <input type="date" id="start-date">
+        <span>To</span>
+        <input type="date" id="end-date">
+      </div>
+      <button class="apply-btn" onclick="applyDateRange()">Apply</button>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Campaign</th>
+            <th>Ad Group</th>
+            <th>Clicks</th>
+            <th>Impressions</th>
+            <th>CPC</th>
+            <th>Total Spend</th>
+            <th>Conversions</th>
+            <th>Cost/Conv</th>
+          </tr>
+        </thead>
+        <tbody id="report-body">
+          <tr><td colspan="8" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const PROXY_URL = "https://gads-proxy-atl.apfelipe94.workers.dev/";
+    let allData = [];
+
+    function fmt(d) { return d.toISOString().split("T")[0]; }
+
+    function getDates(preset) {
+      const end   = new Date();
+      const start = new Date();
+      if (preset === "last7")  start.setDate(end.getDate() - 7);
+      if (preset === "last30") start.setDate(end.getDate() - 30);
+      if (preset === "last60") start.setDate(end.getDate() - 60);
+      if (preset === "last90") start.setDate(end.getDate() - 90);
+      if (preset === "mtd")    start.setDate(1);
+      if (preset === "ytd")  { start.setMonth(0); start.setDate(1); }
+      return { start: fmt(start), end: fmt(end) };
+    }
+
+    function handlePresetChange() {
+      const preset = document.getElementById("preset-select").value;
+      const cr = document.getElementById("custom-range");
+      if (preset === "custom") {
+        cr.style.display = "flex";
+        document.getElementById("start-date").value = fmt(new Date(Date.now() - 30*24*60*60*1000));
+        document.getElementById("end-date").value   = fmt(new Date());
+      } else {
+        cr.style.display = "none";
+      }
+    }
+
+    function applyDateRange() {
+      const preset = document.getElementById("preset-select").value;
+      let startDate, endDate;
+      if (preset === "custom") {
+        startDate = document.getElementById("start-date").value;
+        endDate   = document.getElementById("end-date").value;
+        if (!startDate || !endDate) { alert("Please select both dates."); return; }
+      } else {
+        const d = getDates(preset);
+        startDate = d.start; endDate = d.end;
+      }
+      document.getElementById("date-label").textContent = `${startDate} → ${endDate}`;
+      renderTable(startDate, endDate);
+    }
+
+    function renderTable(startDate, endDate) {
+      const tbody = document.getElementById("report-body");
+
+      // Filter by date range
+      const filtered = allData.filter(r => {
+        const d = (r.date || "").trim();
+        return d >= startDate && d <= endDate;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">No data for selected period.</td></tr>';
+        return;
+      }
+
+      // Aggregate by campaign + ad group
+      const adMap = {};
+      filtered.forEach(r => {
+        const key = `${r.campaign}||${r.adGroup}`;
+        if (!adMap[key]) {
+          adMap[key] = { campaign: r.campaign, adGroup: r.adGroup,
+            clicks: 0, impressions: 0, cost: 0, conversions: 0 };
+        }
+        adMap[key].clicks       += parseFloat(r.clicks) || 0;
+        adMap[key].impressions  += parseFloat(r.impressions) || 0;
+        adMap[key].cost         += parseFloat(r.cost) || 0;
+        adMap[key].conversions  += parseFloat(r.conversions) || 0;
+      });
+
+      const rows = Object.values(adMap)
+        .map(r => ({
+          ...r,
+          cpc:      r.clicks > 0 ? r.cost / r.clicks : 0,
+          costConv: r.conversions > 0 ? r.cost / r.conversions : 0
+        }))
+        .filter(r => r.clicks > 0)
+        .sort((a, b) => b.cost - a.cost);
+
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">No active ads for selected period.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.campaign}</td>
+          <td>${r.adGroup}</td>
+          <td>${r.clicks.toLocaleString()}</td>
+          <td>${r.impressions.toLocaleString()}</td>
+          <td>$${r.cpc.toFixed(2)}</td>
+          <td>$${r.cost.toFixed(2)}</td>
+          <td>${r.conversions.toFixed(1)}</td>
+          <td>${r.costConv > 0 ? "$" + r.costConv.toFixed(2) : "—"}</td>
+        </tr>
+      `).join("");
+    }
+
+    fetch(`${PROXY_URL}/?endpoint=sheet`)
+      .then(res => res.json())
+      .then(json => {
+        allData = json.data || [];
+        applyDateRange();
+      })
+      .catch(() => {
+        document.getElementById("report-body").innerHTML =
+          '<tr><td colspan="8" class="error">Failed to load data.</td></tr>';
+      });
+  </script>
+</body>
+</html>
