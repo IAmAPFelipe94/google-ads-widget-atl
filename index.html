@@ -69,7 +69,7 @@
           </tr>
         </thead>
         <tbody id="report-body">
-          <tr><td colspan="8" class="loading">Loading...</td></tr>
+          <tr><td colspan="11" class="loading">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -130,7 +130,7 @@
       });
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">No data for selected period.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="loading">No data for selected period.</td></tr>';
         return;
       }
 
@@ -146,8 +146,10 @@
         adMap[key].impressions  += parseFloat(r.impressions) || 0;
         adMap[key].cost         += parseFloat(r.cost) || 0;
         adMap[key].conversions  += parseFloat(r.conversions) || 0;
-        adMap[key].won          += parseFloat(r.won) || 0;
-        adMap[key].wonValue     += parseFloat(r.wonValue) || 0;
+        // Won/WonValue are CRM totals (same value repeated on every daily row),
+        // so take the max rather than summing to avoid day-count inflation.
+        adMap[key].won          = Math.max(adMap[key].won, parseFloat(r.won) || 0);
+        adMap[key].wonValue     = Math.max(adMap[key].wonValue, parseFloat(r.wonValue) || 0);
       });
 
       const rows = Object.values(adMap)
@@ -161,7 +163,7 @@
         .sort((a, b) => b.cost - a.cost);
 
       if (rows.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">No active ads for selected period.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="loading">No active ads for selected period.</td></tr>';
         return;
       }
 
@@ -190,7 +192,7 @@
       })
       .catch(() => {
         document.getElementById("report-body").innerHTML =
-          '<tr><td colspan="8" class="error">Failed to load data.</td></tr>';
+          '<tr><td colspan="11" class="error">Failed to load data.</td></tr>';
       });
   </script>
 </body>
