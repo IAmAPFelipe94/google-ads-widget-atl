@@ -60,8 +60,8 @@
             <th>Campaign</th>
             <th>Ad Group</th>
             <th>Conversions</th>
-            <th>CPC</th>
             <th>Total Spend</th>
+            <th>Cost/Conv</th>
             <th>Won</th>
             <th>Value</th>
             <th>ROAS</th>
@@ -167,8 +167,8 @@
           campaign:    p.campaign,
           adGroup:     p.adGroup,
           conversions: p.conversions,
-          cpc:         p.clicks > 0 ? p.cost / p.clicks : 0,
           cost:        p.cost,
+          costConv:    p.conversions > 0 ? p.cost / p.conversions : 0,
           won:         w.won,
           wonValue:    w.wonValue,
           roas:        p.cost > 0 ? w.wonValue / p.cost : 0,
@@ -188,8 +188,8 @@
           <td>${r.campaign}</td>
           <td>${r.adGroup}</td>
           <td>${r.conversions.toFixed(1)}</td>
-          <td>$${r.cpc.toFixed(2)}</td>
           <td>$${r.cost.toFixed(2)}</td>
+          <td>${r.costConv > 0 ? "$" + r.costConv.toFixed(2) : "—"}</td>
           <td>${r.won}</td>
           <td>$${r.wonValue.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
           <td>${r.roas > 0 ? r.roas.toFixed(2) : "—"}</td>
